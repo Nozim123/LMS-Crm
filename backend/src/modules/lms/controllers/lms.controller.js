@@ -1,7 +1,14 @@
 import { query } from '../../../config/db.js';
 
+const toPercent = (completed, total) => (total > 0 ? Math.round((completed / total) * 100) : 0);
+
 export const listCourses = async (req, res, next) => {
   try {
+    const { status } = req.query;
+    const params = [req.tenantId, req.user.sub];
+    const statusClause = status && status !== 'All' ? `AND c.status = $3` : '';
+    if (status && status !== 'All') params.push(status);
+
     const result = await query(
       `SELECT c.id,
               c.title,
@@ -32,16 +39,15 @@ export const listCourses = async (req, res, next) => {
                   AND sp.user_id = $2
               ), 0)::int AS completed_quizzes
        FROM courses c
-       WHERE c.tenant_id = $1
+       WHERE c.tenant_id = $1 ${statusClause}
        ORDER BY c.created_at DESC`,
-      [req.tenantId, req.user.sub]
+      params
     );
 
     const items = result.rows.map((row) => {
       const total = row.total_lessons + row.total_quizzes;
       const completed = row.completed_lessons + row.completed_quizzes;
-      const completionPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
-      return { ...row, completionPercent };
+      return { ...row, completionPercent: toPercent(completed, total) };
     });
 
     res.json({ items });
@@ -65,9 +71,33 @@ export const createCourse = async (req, res, next) => {
   }
 };
 
+export const addChapter = async (req, res, next) => {
+  try {
+    const { title, description = '' } = req.body;
+
+    const orderResult = await query(
+      `SELECT COALESCE(MAX(order_no), 0) + 1 AS next_order
+       FROM chapters
+       WHERE course_id = $1 AND tenant_id = $2`,
+      [req.params.courseId, req.tenantId]
+    );
+
+    const result = await query(
+      `INSERT INTO chapters (tenant_id, course_id, title, description, order_no)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [req.tenantId, req.params.courseId, title, description, orderResult.rows[0].next_order]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const addLesson = async (req, res, next) => {
   try {
-    const { title, chapterTitle = 'General', videoUrl = null } = req.body;
+    const { title, chapterTitle = 'General', videoUrl = null, chapterId = null } = req.body;
 
     const orderResult = await query(
       `SELECT COALESCE(MAX(order_no), 0) + 1 AS next_order
@@ -77,10 +107,10 @@ export const addLesson = async (req, res, next) => {
     );
 
     const result = await query(
-      `INSERT INTO lessons (tenant_id, course_id, title, order_no, video_url, chapter_title)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO lessons (tenant_id, course_id, chapter_id, title, order_no, video_url, chapter_title)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [req.tenantId, req.params.courseId, title, orderResult.rows[0].next_order, videoUrl, chapterTitle]
+      [req.tenantId, req.params.courseId, chapterId, title, orderResult.rows[0].next_order, videoUrl, chapterTitle]
     );
 
     res.status(201).json(result.rows[0]);
@@ -92,14 +122,118 @@ export const addLesson = async (req, res, next) => {
 export const listLessons = async (req, res, next) => {
   try {
     const result = await query(
-      `SELECT id, title, order_no, video_url, chapter_title
-       FROM lessons
-       WHERE tenant_id = $1 AND course_id = $2
-       ORDER BY order_no ASC`,
-      [req.tenantId, req.params.courseId]
+      `SELECT l.id, l.title, l.order_no, l.video_url, l.chapter_title, l.chapter_id,
+              c.title AS chapter_name,
+              COALESCE((
+                SELECT lp.is_completed
+                FROM lesson_progress lp
+                JOIN student_profiles sp ON sp.id = lp.student_profile_id
+                WHERE lp.lesson_id = l.id AND sp.user_id = $3
+                LIMIT 1
+              ), FALSE) AS is_completed
+       FROM lessons l
+       LEFT JOIN chapters c ON c.id = l.chapter_id
+       WHERE l.tenant_id = $1 AND l.course_id = $2
+       ORDER BY l.order_no ASC`,
+      [req.tenantId, req.params.courseId, req.user.sub]
     );
 
     res.json({ items: result.rows });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const toggleLessonCompletion = async (req, res, next) => {
+  try {
+    const { completed } = req.body;
+
+    const student = await query(
+      `SELECT id FROM student_profiles WHERE tenant_id = $1 AND user_id = $2 LIMIT 1`,
+      [req.tenantId, req.user.sub]
+    );
+
+    if (!student.rows[0]) {
+      return res.status(400).json({ message: 'Student profile not found for user.' });
+    }
+
+    const studentProfileId = student.rows[0].id;
+
+    const result = await query(
+      `INSERT INTO lesson_progress (tenant_id, lesson_id, student_profile_id, is_completed, completed_at)
+       VALUES ($1, $2, $3, $4, CASE WHEN $4 THEN NOW() ELSE NULL END)
+       ON CONFLICT (lesson_id, student_profile_id)
+       DO UPDATE SET is_completed = EXCLUDED.is_completed,
+                     completed_at = CASE WHEN EXCLUDED.is_completed THEN NOW() ELSE NULL END
+       RETURNING *`,
+      [req.tenantId, req.params.lessonId, studentProfileId, Boolean(completed)]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const courseDetails = async (req, res, next) => {
+  try {
+    const courseId = req.params.courseId;
+
+    const [courseRes, firstLessonRes, studentsRes, chaptersRes] = await Promise.all([
+      query(
+        `SELECT id, title, description, instructor_name, status, level
+         FROM courses
+         WHERE id = $1 AND tenant_id = $2`,
+        [courseId, req.tenantId]
+      ),
+      query(
+        `SELECT id, title, chapter_title, video_url
+         FROM lessons
+         WHERE tenant_id = $1 AND course_id = $2
+         ORDER BY order_no ASC
+         LIMIT 1`,
+        [req.tenantId, courseId]
+      ),
+      query(
+        `SELECT sp.id AS student_profile_id,
+                u.full_name,
+                COUNT(DISTINCT l.id)::int AS total_lessons,
+                COUNT(DISTINCT CASE WHEN lp.is_completed THEN l.id END)::int AS completed_lessons
+         FROM course_enrollments ce
+         JOIN student_profiles sp ON sp.id = ce.student_profile_id
+         JOIN users u ON u.id = sp.user_id
+         LEFT JOIN lessons l ON l.course_id = ce.course_id
+         LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.student_profile_id = sp.id
+         WHERE ce.tenant_id = $1 AND ce.course_id = $2
+         GROUP BY sp.id, u.full_name
+         ORDER BY u.full_name ASC`,
+        [req.tenantId, courseId]
+      ),
+      query(
+        `SELECT id, title, description, order_no
+         FROM chapters
+         WHERE tenant_id = $1 AND course_id = $2
+         ORDER BY order_no ASC`,
+        [req.tenantId, courseId]
+      )
+    ]);
+
+    if (!courseRes.rows[0]) return res.status(404).json({ message: 'Course not found' });
+
+    const students = studentsRes.rows.map((s) => ({
+      ...s,
+      progress: toPercent(s.completed_lessons, s.total_lessons)
+    }));
+
+    res.json({
+      course: courseRes.rows[0],
+      preview: {
+        introduction: courseRes.rows[0].description,
+        firstLesson: firstLessonRes.rows[0] || null
+      },
+      students,
+      chapters: chaptersRes.rows
+    });
   } catch (error) {
     next(error);
   }

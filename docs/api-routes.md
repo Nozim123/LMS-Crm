@@ -15,10 +15,13 @@ All routes except `/auth/*` require:
 - `POST /api/v1/crm/leads/:id/notes`
 
 ## LMS
-- `GET /api/v1/lms/courses`
+- `GET /api/v1/lms/courses?status=All|Active|Draft|Archived`
 - `POST /api/v1/lms/courses`
+- `GET /api/v1/lms/courses/:courseId/detail`
 - `GET /api/v1/lms/courses/:courseId/lessons`
 - `POST /api/v1/lms/courses/:courseId/lessons`
+- `POST /api/v1/lms/courses/:courseId/chapters`
+- `POST /api/v1/lms/lessons/:lessonId/progress`
 - `POST /api/v1/lms/quizzes/attempts`
 
 ## HEMIS

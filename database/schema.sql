@@ -160,12 +160,27 @@ CREATE TABLE lessons (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  chapter_id UUID,
   title TEXT NOT NULL,
   order_no INT NOT NULL,
   chapter_title TEXT NOT NULL DEFAULT 'General',
   video_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE chapters (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  order_no INT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE lessons
+  ADD CONSTRAINT fk_lessons_chapter
+  FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE SET NULL;
 
 CREATE TABLE lesson_progress (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -175,6 +190,15 @@ CREATE TABLE lesson_progress (
   is_completed BOOLEAN NOT NULL DEFAULT FALSE,
   completed_at TIMESTAMPTZ,
   UNIQUE (lesson_id, student_profile_id)
+);
+
+CREATE TABLE course_enrollments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  student_profile_id UUID NOT NULL REFERENCES student_profiles(id) ON DELETE CASCADE,
+  enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (course_id, student_profile_id)
 );
 
 CREATE TABLE course_materials (
