@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function sameOrg(orgId) {
+      return signedIn() && request.auth.token.orgId == orgId;
+    }
+
+    function isAdmin() {
+      return signedIn() && (
+        request.auth.token.activeRole in ['admin', 'super_admin', 'Admin', 'SuperAdmin'] ||
+        request.auth.token.role in ['admin', 'super_admin', 'Admin', 'SuperAdmin']
+      );
+    }
+
+    match /organizations/{orgId}/sms_templates/{templateId} {
+      allow read: if sameOrg(orgId);
+      allow create, update, delete: if sameOrg(orgId) && isAdmin();
+    }
+
+    match /organizations/{orgId}/course_bundles/{bundleId} {
+      allow read: if sameOrg(orgId);
+      allow create, update, delete: if sameOrg(orgId) && isAdmin();
+    }
+  }
+}
