@@ -1,9 +1,6 @@
-# EduCore SaaS Platform (LMS + HEMIS + CRM)
+# EduCore SaaS Platform
 
-Production-ready multi-tenant architecture blueprint and starter kit for:
-- Private learning centers
-- Universities
-- Training academies
+A real full-stack starter for **LMS + HEMIS-like SIS + CRM** with multi-tenant SaaS architecture for education institutions.
 
 ## 1) Project Folder Structure
 
@@ -13,116 +10,138 @@ Production-ready multi-tenant architecture blueprint and starter kit for:
 │   ├── src/
 │   │   ├── app.js
 │   │   ├── server.js
-│   │   ├── config/
-│   │   │   ├── env.js
-│   │   │   └── db.js
-│   │   ├── middleware/
-│   │   │   ├── auth.js
-│   │   │   ├── rbac.js
-│   │   │   ├── tenant.js
-│   │   │   └── errorHandler.js
-│   │   ├── shared/
-│   │   │   └── logger.js
-│   │   └── modules/
-│   │       ├── tenant/
-│   │       ├── auth/
-│   │       ├── crm/
-│   │       ├── lms/
-│   │       ├── hemis/
-│   │       ├── payment/
-│   │       └── dashboard/
-│   ├── package.json
-│   ├── Dockerfile
-│   └── .env.example
-├── frontend/
-│   ├── src/
-│   │   ├── main.jsx
-│   │   ├── app/store.js
-│   │   ├── app/router.jsx
-│   │   ├── components/layout/
-│   │   ├── pages/
-│   │   ├── features/
-│   │   └── i18n/
+│   │   ├── config/              # env + PostgreSQL pool
+│   │   ├── middleware/          # JWT, tenant, RBAC, error handling
+│   │   ├── modules/
+│   │   │   ├── auth/            # login/register
+│   │   │   ├── crm/             # leads + notes + pipeline
+│   │   │   ├── lms/             # courses + quiz autograde
+│   │   │   ├── hemis/           # students + attendance + GPA
+│   │   │   ├── payment/         # invoices + payments + debt summary
+│   │   │   ├── dashboard/       # KPI analytics
+│   │   │   ├── notifications/   # SMS/Telegram queue records
+│   │   │   └── files/           # file upload endpoint
+│   │   └── utils/               # audit log helpers
 │   ├── package.json
 │   └── Dockerfile
-├── database/
-│   └── schema.sql
-├── docs/
-│   └── api-routes.md
-├── docker-compose.yml
-└── README.md
+├── frontend/
+│   ├── src/
+│   │   ├── api/client.js
+│   │   ├── app/router.jsx
+│   │   ├── app/store.js
+│   │   ├── components/          # layout + UI cards
+│   │   ├── pages/               # admin panels (dashboard, crm, lms, ...)
+│   │   ├── features/auth/
+│   │   └── i18n/
+│   ├── index.html
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── vite.config.js
+│   └── Dockerfile
+├── database/schema.sql
+├── docs/api-routes.md
+└── docker-compose.yml
 ```
 
 ## 2) Database Schema (ERD)
 
-See full DDL in `database/schema.sql`.
+Core entities:
+- **Multi-tenant + security**: `tenants`, `users`, `tenant_users`, `audit_logs`
+- **CRM**: `leads`, `lead_notes`, `lead_reminders`, `enrollments`
+- **LMS**: `courses`, `lessons`, `course_materials`, `homework_submissions`, `quizzes`, `quiz_questions`, `quiz_attempts`, `certificates`
+- **HEMIS**: `student_profiles`, `groups`, `group_students`, `attendances`, `gradebook`, `timetables`
+- **Payments**: `invoices`, `discounts`, `payments`
+- **Notifications**: `notifications`
 
-### Core multi-tenant entities
-- `tenants` (organization/school level partition)
-- `users` (global auth users)
-- `tenant_users` (user-role per tenant)
-- `audit_logs` (tenant-scoped action trails)
-
-### CRM entities
-- `leads`, `lead_notes`, `lead_reminders`, `enrollments`
-
-### LMS entities
-- `courses`, `lessons`, `course_materials`, `homework_submissions`, `quizzes`, `quiz_questions`, `quiz_attempts`, `certificates`
-
-### HEMIS entities
-- `student_profiles`, `groups`, `group_students`, `attendances`, `gradebook`, `timetables`
-
-### Payments entities
-- `invoices`, `payments`, `discounts`
+All business tables include `tenant_id` for strict tenant partitioning.
 
 ## 3) Backend API Routes
 
-Detailed route list: `docs/api-routes.md`
+### Auth
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
 
-Sample route groups:
-- `/api/v1/auth/*`
-- `/api/v1/crm/*`
-- `/api/v1/lms/*`
-- `/api/v1/hemis/*`
-- `/api/v1/payment/*`
-- `/api/v1/dashboard/*`
+### CRM
+- `GET /api/v1/crm/pipeline`
+- `GET /api/v1/crm/leads`
+- `POST /api/v1/crm/leads`
+- `POST /api/v1/crm/leads/:id/notes`
 
-All business routes are tenant-scoped via `x-tenant-id` header + JWT claims.
+### LMS
+- `GET /api/v1/lms/courses`
+- `POST /api/v1/lms/courses`
+- `POST /api/v1/lms/quizzes/attempts`
 
-## 4) Frontend Pages Structure
+### HEMIS
+- `GET /api/v1/hemis/students`
+- `GET /api/v1/hemis/students/:studentId/gpa`
+- `POST /api/v1/hemis/attendance`
 
-- Auth: Login, Forgot Password
-- Dashboard: KPI cards, revenue/attendance/progress charts
-- CRM: Leads board, lead detail, reminders, call notes
-- LMS: Courses, lesson player, quizzes, homework submission
-- HEMIS: Students, attendance, gradebook, timetable, groups
-- Payments: Invoices, transactions, debt/discounts
-- Settings: Roles, Integrations (SMS/Telegram/Payments), Audit logs, Localization
+### Payments
+- `GET /api/v1/payment/invoices`
+- `POST /api/v1/payment/invoices`
+- `POST /api/v1/payment/payments`
+- `GET /api/v1/payment/debts`
+
+### Dashboard
+- `GET /api/v1/dashboard/overview`
+
+### Notifications + Files
+- `POST /api/v1/notifications`
+- `POST /api/v1/files/upload`
+
+## 4) Frontend Pages Structure (Admin Panels)
+
+- `/login` – tenant-aware login
+- `/` – KPI dashboard
+- `/crm` – lead creation + pipeline list/table
+- `/lms` – courses management panel
+- `/hemis` – student academic records panel
+- `/payments` – invoices and payment status panel
+- `/notifications` – SMS/Telegram queue panel
+- `/settings` – localization and platform settings
 
 ## 5) Step-by-Step Implementation Plan
 
-1. **Foundation**: bootstrap monorepo, Docker, CI, lint/test format rules.
-2. **Identity & tenancy**: JWT auth, RBAC, tenant middleware, seed super admin.
-3. **CRM MVP**: lead capture, pipeline status transitions, reminder scheduler.
-4. **HEMIS core**: groups, attendance, gradebook, GPA service.
-5. **LMS core**: course/lesson CRUD, progress tracking, quizzes/autograde.
-6. **Payments**: invoices, monthly plans, debt aging, gateway abstraction.
-7. **Analytics**: pre-aggregated daily metrics + dashboard endpoints.
-8. **Integrations**: SMS/Telegram adapters + webhooks.
-9. **Hardening**: audit logs, rate limiting, observability, backups.
-10. **Scale**: queue workers, caching, read replicas, tenant sharding strategy.
+1. Add DB migration framework (Prisma/Knex) + seed command for demo tenant.
+2. Add refresh token flow and password reset.
+3. Implement full RBAC policies per endpoint (role matrix).
+4. Add Telegram/SMS provider adapters and worker queue.
+5. Add object storage for uploads (S3/MinIO).
+6. Add tests: unit (services), integration (API), e2e (frontend).
+7. Add SaaS billing, tenant subscription plans, and metering.
+8. Add observability: OpenTelemetry, structured logs, metrics, alerts.
+9. Split heavy analytics into background jobs + materialized views.
+10. Introduce horizontal scale: Redis cache, queue workers, read replicas.
 
 ## 6) Starter Code for Key Modules
 
 Implemented in:
-- Backend: `backend/src/*`
-- Frontend: `frontend/src/*`
-- SQL DDL: `database/schema.sql`
+- **Backend**: `backend/src/modules/*` with real DB-backed handlers.
+- **Frontend**: `frontend/src/pages/*` with role/admin-oriented pages and API integration.
+- **Database**: `database/schema.sql` with tenant-safe relational model.
 
-### SaaS scalability patterns used
-- Tenant-aware middleware and data model
-- UUID primary keys and strict foreign keys
-- Module-based backend boundaries
-- Stateless API for horizontal scaling
-- Payment provider adapter abstraction
-- Ready for queue-based background jobs and outbox pattern
+---
+
+## Quick Start
+
+### Docker
+```bash
+docker compose up --build
+```
+
+### Local backend
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+### Local frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+> Send `x-tenant-id` on auth and API requests. Frontend stores and forwards it automatically.

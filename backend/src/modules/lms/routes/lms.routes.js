@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { listCourses, submitHomework } from '../controllers/lms.controller.js';
+import { createCourse, listCourses, submitQuizAttempt } from '../controllers/lms.controller.js';
 
 const router = Router();
 
 router.get('/courses', listCourses);
-router.post('/homework/submissions', submitHomework);
+router.post('/courses', createCourse);
+router.post('/quizzes/attempts', submitQuizAttempt);
 
 export default router;

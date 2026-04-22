@@ -248,3 +248,17 @@ CREATE TABLE payments (
   provider_txn_id TEXT,
   paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  channel TEXT NOT NULL CHECK (channel IN ('SMS', 'Telegram', 'Email')),
+  recipient TEXT NOT NULL,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('queued', 'sent', 'failed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_leads_tenant_stage ON leads (tenant_id, stage);
+CREATE INDEX idx_invoices_tenant_status ON invoices (tenant_id, status);
+CREATE INDEX idx_attendance_tenant_date ON attendances (tenant_id, lesson_date);
