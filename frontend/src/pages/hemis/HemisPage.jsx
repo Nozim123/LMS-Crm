@@ -4,13 +4,17 @@ import { api } from '../../api/client';
 export default function HemisPage() {
   const [students, setStudents] = useState([]);
 
+  const load = () => api.get('/hemis/students').then((r) => setStudents(r.data.items)).catch(() => {});
+
   useEffect(() => {
-    api.get('/hemis/students').then((r) => setStudents(r.data.items)).catch(() => {});
+    load();
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-4">HEMIS Student Records</h2>
+      <h2 className="text-2xl font-semibold mb-4">HEMIS Student Records (Real-time)</h2>
       <div className="bg-white rounded shadow overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-100"><tr><th className="p-2 text-left">Code</th><th className="p-2 text-left">Name</th><th className="p-2 text-left">Email</th></tr></thead>

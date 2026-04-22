@@ -3,13 +3,17 @@
 @tailwind utilities;
 
 body {
-  @apply bg-slate-100 text-slate-900;
+  @apply bg-[#f4f6fb] text-slate-900 font-sans;
 }
 
 .input {
-  @apply w-full px-3 py-2 border rounded-md bg-white;
+  @apply w-full px-3 py-2 border border-slate-200 rounded-md bg-white text-sm;
 }
 
 .btn {
-  @apply px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700;
+  @apply px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium;
+}
+
+.sidebar-link {
+  @apply flex items-center gap-3 px-3 py-2 rounded-lg text-slate-700 hover:bg-blue-50;
 }

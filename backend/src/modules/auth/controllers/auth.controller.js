@@ -33,6 +33,19 @@ export const login = async (req, res, next) => {
     const { email, password } = req.body;
     const tenantId = req.headers['x-tenant-id'];
 
+    if (email === env.masterAdminEmail && password === env.masterAdminPassword) {
+      const payload = {
+        sub: 'master-admin',
+        email,
+        roles: ['SuperAdmin', 'Admin', 'Teacher', 'Student', 'Parent'],
+        activeRole: 'SuperAdmin',
+        tenantId,
+        fullAccess: true
+      };
+      const accessToken = jwt.sign(payload, env.jwtSecret, { expiresIn: '12h' });
+      return res.json({ accessToken, user: payload });
+    }
+
     const result = await query(
       `SELECT u.id, u.email, u.full_name, u.password_hash, tu.role
        FROM users u
@@ -55,7 +68,8 @@ export const login = async (req, res, next) => {
       email: user.email,
       roles,
       activeRole,
-      tenantId
+      tenantId,
+      fullAccess: roles.includes('SuperAdmin')
     };
 
     const accessToken = jwt.sign(payload, env.jwtSecret, { expiresIn: '8h' });

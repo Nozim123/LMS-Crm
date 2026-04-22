@@ -4,13 +4,17 @@ import { api } from '../../api/client';
 export default function PaymentsPage() {
   const [invoices, setInvoices] = useState([]);
 
+  const load = () => api.get('/payment/invoices').then((r) => setInvoices(r.data.items)).catch(() => {});
+
   useEffect(() => {
-    api.get('/payment/invoices').then((r) => setInvoices(r.data.items)).catch(() => {});
+    load();
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-4">Payments & Invoices</h2>
+      <h2 className="text-2xl font-semibold mb-4">Payments & Invoices (Real-time)</h2>
       <div className="bg-white rounded shadow overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-100"><tr><th className="p-2">Amount</th><th className="p-2">Due</th><th className="p-2">Status</th></tr></thead>

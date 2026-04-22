@@ -27,9 +27,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid place-items-center">
-      <form className="bg-white p-6 rounded-lg shadow w-full max-w-md space-y-3" onSubmit={onSubmit}>
+    <div className="min-h-screen grid place-items-center bg-[#f4f6fb]">
+      <form className="bg-white p-6 rounded-xl shadow w-full max-w-md space-y-3" onSubmit={onSubmit}>
         <h1 className="text-2xl font-semibold">EduCore Login</h1>
+        <p className="text-xs text-slate-500">Master admin defaults: admin@educore.local / Admin123!</p>
         <input className="input" placeholder="Tenant UUID" value={form.tenantId} onChange={(e) => setForm({ ...form, tenantId: e.target.value })} required />
         <input className="input" placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
         <input className="input" placeholder="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />

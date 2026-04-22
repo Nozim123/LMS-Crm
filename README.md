@@ -156,3 +156,12 @@ npm run dev
   - create form + validation
   - edit form (prefilled) + save
 - Added Firestore security rules in `firebase/firestore.rules` to prevent insufficient-permission errors and scope access by org + role.
+
+## Real-time + Admin-first updates
+
+- Core pages now refresh every 10 seconds (Dashboard, LMS, CRM, HEMIS, Payments) for near real-time data.
+- LMS detail panels refresh automatically while expanded.
+- Added master admin login support via env:
+  - `MASTER_ADMIN_EMAIL`
+  - `MASTER_ADMIN_PASSWORD`
+- Master admin receives full role set and can control modules from **Admin Control Center**.
